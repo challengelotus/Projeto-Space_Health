@@ -170,7 +170,8 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {
     padding: spacing.md,
-    borderBottomWidth: 1,
+    paddingTop: 48,
+    borderBottomColor: 1,
   },
   headerTop: {
     flexDirection: 'row',
