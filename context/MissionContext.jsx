@@ -1,18 +1,18 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { missionData, crewData, vitalsData, alertsData } from '../data/mockData';
+import { missionData, crewData, vitalsData, alertsData, physiciansData } from '../data/mockData';
 
 const MissionContext = createContext();
 
 export function MissionProvider({ children }) {
   const [mission] = useState(missionData);
   const [crew] = useState(crewData);
+  const [physicians] = useState(physiciansData);
   const [vitals, setVitals] = useState(vitalsData);
-  const [alerts, setAlerts] = useState(alertsData);
+  const [alerts] = useState(alertsData);
   const [consultations, setConsultations] = useState([]);
-  const [darkMode, setDarkMode] = useState(true);
+  const [darkMode, setDarkMode] = useState(false);
 
-  // Simula atualização do batimento cardíaco a cada 3s
   useEffect(() => {
     const interval = setInterval(() => {
       setVitals(prev => ({
@@ -23,11 +23,9 @@ export function MissionProvider({ children }) {
         },
       }));
     }, 3000);
-
     return () => clearInterval(interval);
   }, []);
 
-  // Carrega consultas e tema salvos no AsyncStorage
   useEffect(() => {
     loadStoredData();
   }, []);
@@ -35,32 +33,38 @@ export function MissionProvider({ children }) {
   async function loadStoredData() {
     try {
       const storedConsultations = await AsyncStorage.getItem('@consultations');
-      if (storedConsultations) {
-        setConsultations(JSON.parse(storedConsultations));
-      }
+      if (storedConsultations) setConsultations(JSON.parse(storedConsultations));
 
       const storedTheme = await AsyncStorage.getItem('@darkMode');
-      if (storedTheme !== null) {
-        setDarkMode(JSON.parse(storedTheme));
-      }
-    } catch (error) {
-      console.log('Erro ao carregar dados:', error);
+      if (storedTheme !== null) setDarkMode(JSON.parse(storedTheme));
+    } catch (e) {
+      console.log('Erro ao carregar dados:', e);
     }
   }
 
   async function addConsultation(consultation) {
     try {
-      const newConsultation = {
+      const newItem = {
         ...consultation,
         id: Date.now().toString(),
         date: new Date().toLocaleDateString('pt-BR'),
-        time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+        time: new Date().toLocaleTimeString('pt-BR'),
       };
-      const updated = [newConsultation, ...consultations];
+      const updated = [newItem, ...consultations];
       setConsultations(updated);
       await AsyncStorage.setItem('@consultations', JSON.stringify(updated));
-    } catch (error) {
-      console.log('Erro ao salvar consulta:', error);
+    } catch (e) {
+      console.log('Erro ao salvar consulta:', e);
+    }
+  }
+
+  async function removeConsultation(id) {
+    try {
+      const updated = consultations.filter(c => c.id !== id);
+      setConsultations(updated);
+      await AsyncStorage.setItem('@consultations', JSON.stringify(updated));
+    } catch (e) {
+      console.log('Erro ao remover consulta:', e);
     }
   }
 
@@ -69,33 +73,24 @@ export function MissionProvider({ children }) {
       const newValue = !darkMode;
       setDarkMode(newValue);
       await AsyncStorage.setItem('@darkMode', JSON.stringify(newValue));
-    } catch (error) {
-      console.log('Erro ao salvar tema:', error);
+    } catch (e) {
+      console.log('Erro ao salvar tema:', e);
     }
   }
 
-  function resolveAlert(id) {
-    setAlerts(prev =>
-      prev.map(alert =>
-        alert.id === id ? { ...alert, resolved: true } : alert
-      )
-    );
-  }
-
   return (
-    <MissionContext.Provider
-      value={{
-        mission,
-        crew,
-        vitals,
-        alerts,
-        consultations,
-        darkMode,
-        addConsultation,
-        toggleDarkMode,
-        resolveAlert,
-      }}
-    >
+    <MissionContext.Provider value={{
+      mission,
+      crew,
+      physicians,
+      vitals,
+      alerts,
+      consultations,
+      darkMode,
+      addConsultation,
+      removeConsultation,
+      toggleDarkMode,
+    }}>
       {children}
     </MissionContext.Provider>
   );
@@ -103,8 +98,6 @@ export function MissionProvider({ children }) {
 
 export function useMission() {
   const context = useContext(MissionContext);
-  if (!context) {
-    throw new Error('useMission deve ser usado dentro de MissionProvider');
-  }
+  if (!context) throw new Error('useMission deve ser usado dentro de MissionProvider');
   return context;
 }
